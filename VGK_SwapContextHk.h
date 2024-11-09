@@ -5,7 +5,7 @@ void VGK_WhitelistThread_SwapContextHk(uint64_t CurrentThread)
         return; 
     }
 
-    // check if the current thread is whitelisted to allow memory context switching.
+    // check if the current thread is whitelisted to allow memory context switching
     bool isThreadAllowedToWriteCR3 = false;
     AcquireSpinLock();
     if (WhitelistedThreadCount > 0) {
@@ -25,10 +25,10 @@ void VGK_WhitelistThread_SwapContextHk(uint64_t CurrentThread)
     // prepare a new CR3 context for the whitelisted thread
     _disable(); 
 
-    // copy the current game CR3 page directory to the cloned CR3.
+    // copy the current game CR3 page directory to the cloned CR3
     custom_memcpy(reinterpret_cast<void*>(ClonedCR3), reinterpret_cast<void*>(GameProcessCR3), 0x1000);
 
-    // set up a shadow page table entry for the cloned CR3.
+    // set up a shadow page table entry for the cloned CR3
     *reinterpret_cast<uint64_t*>(ClonedCR3 + 8 * FreePML4Index) = ShadowPageTableEntry;
 
     // write the cloned CR3 if the thread is allowed to change memory context
