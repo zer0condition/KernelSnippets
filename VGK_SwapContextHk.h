@@ -1,4 +1,4 @@
-void VGK_SwapContexthk(uint64_t CurrentThread) 
+void VGK_WhitelistThread_SwapContextHk(uint64_t CurrentThread) 
 {
     uint64_t currentCR3 = __readcr3();
     if (currentCR3 != GameProcessCR3) {
