@@ -4,8 +4,8 @@ void VGK_WhitelistThread_SwapContextHk(uint64_t CurrentThread)
     if (currentCR3 != GameProcessCR3) {
         return; 
     }
-
-    // check if the current thread is whitelisted to allow memory context switching
+ 
+    // Check if the current thread is whitelisted to allow memory context switching
     bool isThreadAllowedToWriteCR3 = false;
     AcquireSpinLock();
     if (WhitelistedThreadCount > 0) {
@@ -17,45 +17,45 @@ void VGK_WhitelistThread_SwapContextHk(uint64_t CurrentThread)
         }
     }
     ReleaseSpinLock();
-
+ 
     if (!isThreadAllowedToWriteCR3) {
         return;
     }
-
-    // prepare a new CR3 context for the whitelisted thread
+ 
+    // Prepare a new CR3 context for the whitelisted thread
     _disable(); 
-
+ 
     // copy the current game CR3 page directory to the cloned CR3
     custom_memcpy(reinterpret_cast<void*>(ClonedCR3), reinterpret_cast<void*>(GameProcessCR3), 0x1000);
-
+ 
     // set up a shadow page table entry for the cloned CR3
-    *reinterpret_cast<uint64_t*>(ClonedCR3 + 8 * FreePML4Index) = ShadowPageTableEntry;
-
-    // write the cloned CR3 if the thread is allowed to change memory context
+    *reinterpret_cast<uint64_t*>(ClonedCR3 + 8 * FreePML4Index) = Data::ShadowPML4Value;
+ 
+    // write the cloned CR3 if the thread is allowed to change memory context; 
     if (isThreadAllowedToWriteCR3) {
-        __writecr3(ClonedCR3);
+        __writecr3(DecryptedClonedCR3); // decryption routine is redacted to make it readable; v17 and the one inside v3 condition also works.
     }
-
-    // iterate over the page table array and clear access permissions based on the access byte
-    uint64_t clientPageTable = reinterpret_cast<uint64_t>(PageTableArray);
-    uint64_t adjustedAccessAddress = GameProcessCR3 ^ PageTableArray[PageAccessByte];
-
-    // loop through each PML4 entry
-    for (uint64_t i = 0; i < 512; ++i) { 
-        uint64_t entry = *reinterpret_cast<uint64_t*>(clientPageTable + 8 * i);
-        // check if the page table entry is valid
-        if ((entry & 1) != 0) {
+ 
+    // loop through each entry in the OriginalPML4 (ShadowRegionsDataStructure)
+    uint64_t OriginalPML4_t = reinterpret_cast<uint64_t>(Data::OriginalPML4/*qword_83D18*/);
+    uint64_t MMPfnDatabase = qword_140080AF0 ^ qword_140080AF8[byte_80AE9];  // calculate MMPfnDatabase based on provided XOR
+    
+    for (uint64_t i = 0; i < 0x200; ++i) {
+        uint64_t entry = *reinterpret_cast<uint64_t*>(OriginalPML4_t + 8 * i); // access each entry
+        // check if the entry is cloned
+        if ((entry & 1) != 0) {  
+            // calculate the corresponding PFN index and modify its MMPFN entry
             uint64_t entryIndex = (entry >> 12) & 0xFFFFFFFFF;
-            *reinterpret_cast<uint64_t*>(adjustedAccessAddress + 48 * entryIndex) &= ~1ULL; // clear access bit
+            *reinterpret_cast<uint64_t*>(MMPfnDatabase + 48 * entryIndex) &= ~1ULL; // clear the active bit
         }
     }
-
-    // flush the tlb if required
+ 
+    // flush TLB if required
     if (ShouldFlushTLB) {
         uint64_t originalCR4 = __readcr4();
-        __writecr4(originalCR4 ^ 0x80);
-        __writecr4(originalCR4); 
+        __writecr4(originalCR4 ^ 0x80); 
+        __writecr4(originalCR4);    
     }
-
+ 
     _enable();
 }
