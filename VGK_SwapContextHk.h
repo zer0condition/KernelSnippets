@@ -42,7 +42,7 @@ void VGK_WhitelistThread_SwapContextHk(uint64_t CurrentThread)
     
     for (uint64_t i = 0; i < 0x200; ++i) {
         uint64_t entry = *reinterpret_cast<uint64_t*>(OriginalPML4_t + 8 * i); // access each entry
-        // check if the entry is cloned
+        // check if the LSB is set
         if ((entry & 1) != 0) {  
             // calculate the corresponding PFN index and modify its MMPFN entry
             uint64_t entryIndex = (entry >> 12) & 0xFFFFFFFFF;
